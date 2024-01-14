@@ -1,0 +1,176 @@
+import time
+import getpass
+import allure
+import os
+import pyperclip
+from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait as WDW
+from selenium.webdriver.common.keys import Keys
+
+
+class Base:
+    def __init__(self, browser, url):
+        self.browser = browser
+        self.url = url
+        self.timeout = 3
+
+    def open(self):
+        self.browser.get(self.url)
+        time.sleep(2)
+
+    def alert_ok(self):
+        alert = self.browser.switch_to.alert
+        alert.accept()
+
+    def move_to_element(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        AC = ActionChains(self.browser)
+        AC.move_to_element(element).perform()
+        time.sleep(2)
+        self.browser.execute_script('window.scrollTo(0, window.scrollY + 350);')
+        AC.move_to_element(element).perform()
+
+    def js_click(self, locator):
+        time.sleep(1)
+        element = WDW(self.browser, self.timeout).until(EC.element_to_be_clickable(locator))
+        self.browser.execute_script('arguments[0].click();', element)
+
+    def send_file(self, locator, path):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        element.send_keys(path)
+
+    def simple_click(self, locator):
+        WDW(self.browser, self.timeout).until(EC.element_to_be_clickable(locator),
+                                              message=f'Не могу найти локатор {locator}').click()
+
+    def click(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        AC = ActionChains(self.browser)
+        AC.move_to_element(element).click().perform()
+
+    def scroll(self, locator):
+        element = WDW(self.browser, self.timeout).until(
+             EC.visibility_of_element_located(locator),
+            message=f'Не могу найти локатор {locator}')
+        self.browser.execute_script("arguments[0].scrollIntoView();", element)
+
+    def scroll_to(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        AC = ActionChains(self.browser)
+        AC.move_to_element(element).perform()
+
+    def enter_text_ac(self, locator, text):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        AC = ActionChains(self.browser)
+        AC.click(element).send_keys(text).perform()
+
+    def enter_text(self, locator, text):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        element.send_keys(text)
+
+    def clear_text(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        element.clear()
+
+    def get_element_text(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        return element.text
+
+    def get_attr(self, locator, value):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        return element.get_attribute(value)
+
+    def get_selected_option(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        return element.text
+
+    def is_visible(self, locator):
+        element = WDW(self.browser, self.timeout).until(EC.visibility_of_element_located(locator),
+                                                        message=f'Не могу найти локатор {locator}')
+        return bool(element)
+
+    def is_not_visible(self, locator):
+        element = WDW(self.browser, self.timeout).until_not(EC.visibility_of_element_located(locator),
+                                                            message=f'Была найдена запись, а её быть не должно {locator}')
+        return bool(element)
+
+    def screen(self, filename, name):
+        time.sleep(1)
+        self.browser.save_screenshot(f"screenshots/{filename}.png")
+        allure.attach.file(f"screenshots/{filename}.png", name=f'{name}',
+                           attachment_type=allure.attachment_type.PNG)
+
+    def change_url(self, url):
+        self.browser.get(url)
+
+    def refresh_page(self):
+        self.browser.refresh()
+
+    def get_first_url(self):
+        return self.browser.current_url
+
+    def get_second_url(self):
+        return self.browser.current_url
+
+    def get_user_name(self):
+        self.username = getpass.getuser()
+        return self.username
+
+    def downloaded_file_exist(self, file_name):
+        duplicates = ['', ' (1)', ' (2)', ' (3)', ' (4)', ' (5)', ' (6)', ' (7)', ' (8)', ' (9)', ' (10)']
+        extensions = ['.xlsx', '.csv']
+        self.get_user_name()
+        for duplicate in duplicates:
+            for ext in extensions:
+                file_path = f'C:\\Users\\{self.username}\Downloads\\{file_name}{duplicate}{ext}'
+                if os.path.isfile(file_path):
+                    size = os.path.getsize(file_path)
+                    if size > 0:
+                        return  #выход, если файл найден
+                    else:
+                        break  #пропуск поиска внутри цикла
+                else:
+                    continue  #продолжить поиск внутри цикла
+        assert False, 'Ошибка в экспорте файла'
+
+    def remove_downloaded_file(self, file_name):
+        duplicates = ['', ' (1)', ' (2)', ' (3)', ' (4)', ' (5)', ' (6)', ' (7)', ' (8)', ' (9)', ' (10)']
+        extensions = ['.xlsx', '.csv']
+        self.get_user_name()
+        for duplicate in duplicates:
+            for ext in extensions:
+                file_path = f'C:\\Users\\{self.username}\Downloads\\{file_name}{duplicate}{ext}'
+                try:
+                    os.remove(file_path)
+                except FileNotFoundError:
+                    pass
+
+    def reset_cookie(self):
+        self.browser.delete_all_cookies()
+
+    def close_current_window(self):
+        self.browser.close()
+
+    def get_tab_name(self):
+        return self.browser.title
+
+    def switch_to_tab(self, tab_index):
+        handles = self.browser.window_handles
+        if tab_index < len(handles):
+            self.browser.switch_to.window(handles[tab_index])
+
+    def paste_text_from_clipboard(element):
+        text = pyperclip.paste()
+        return text
